@@ -346,6 +346,8 @@ container.addEventListener('touchstart', (event) => {
     }
 });
 
+// Semua kode sebelumnya tetap sama sampai bagian NAVIGATION CONTROLS
+
 // NAVIGATION CONTROLS
 let moveForward = false,
     moveBackward = false,
