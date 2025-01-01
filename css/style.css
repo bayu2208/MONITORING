@@ -39,3 +39,53 @@ body {
   font-size: 14px;
   z-index: 1000; /* Memastikan tampil di atas scene 3D */
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .object-popup {
+      font-size: 14px;
+      padding: 12px;
+      max-width: 80vw;
+  }
+
+  .close-button {
+      font-size: 24px;
+      padding: 8px 12px;
+      appearance: none;
+      -webkit-appearance: none;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+  }
+}
+
+/* Prevent touch selection */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Improve popup appearance */
+.object-popup {
+  background-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Make close button more touch-friendly */
+.close-button {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Prevent blue highlight on mobile */
+.object-popup, .close-button {
+  -webkit-tap-highlight-color: transparent;
+}

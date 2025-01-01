@@ -49,61 +49,59 @@ const popup = document.createElement('div');
 popup.className = 'object-popup';
 popup.style.position = 'fixed';
 popup.style.backgroundColor = 'white';
-popup.style.padding = '10px';
+popup.style.padding = '15px';
 popup.style.border = '1px solid #ccc';
-popup.style.borderRadius = '5px';
+popup.style.borderRadius = '8px';
 popup.style.display = 'none';
 popup.style.zIndex = '1000';
+popup.style.maxWidth = '80vw';
+popup.style.fontSize = '16px';
 document.body.appendChild(popup);
 
 // OBJECT DATA
 const objectData = new Map();
 
 function addObjectData(name, data) {
-  console.log(`Adding data for object: ${name}`, data); // Debug log
-  objectData.set(name, {
-      date: data.date || "Not specified",
-      vendor: data.vendor || "Not specified",
-      mandor: data.mandor || "Not specified",
-      zone: data.zone || "Not specified",
-      workers: data.workers || "Not specified"
-  });
+    console.log(`Adding data for object: ${name}`, data);
+    objectData.set(name, {
+        date: data.date || "Not specified",
+        vendor: data.vendor || "Not specified",
+        mandor: data.mandor || "Not specified",
+        zone: data.zone || "Not specified",
+        workers: data.workers || "Not specified"
+    });
 }
 
 // MODEL LOADING
 const loader = new GLTFLoader();
 loader.load(
-  './models/REVIT KANDAU/KANDAU.gltf',
-  (gltf) => {
-      const model = gltf.scene;
-      
-      // Initial data for objects
-      const initialData = {
-          object_1: {
-              date: "2024-01-15",
-              vendor: "PT. ABC",
-              mandor: "Pak Ahmad",
-              zone: "Zone A",
-              workers: 25
-          }
-          // Add more object data as needed
-      };
+    './models/REVIT KANDAU/KANDAU.gltf',
+    (gltf) => {
+        const model = gltf.scene;
+        
+        // Initial data for objects
+        const initialData = {
+            object_1: {
+                date: "2024-01-15",
+                vendor: "PT. ABC",
+                mandor: "Pak Ahmad",
+                zone: "Zone A",
+                workers: 25
+            }
+        };
 
         model.traverse((child) => {
-          if (child.isMesh) {
-              // Ensure each mesh has a unique name
-              const objName = child.name || `object_${Math.random().toString(36).substr(2, 9)}`;
-              child.name = objName;
-              console.log('Processing mesh:', objName); // Debug log
-              
-              // Add data for each mesh
-              addObjectData(objName, initialData[objName] || {
-                  date: "2024-01-15",
-                  vendor: "Default Vendor",
-                  mandor: "Default Mandor",
-                  zone: "Default Zone",
-                  workers: 0
-              });
+            if (child.isMesh) {
+                const objName = child.name || `object_${Math.random().toString(36).substr(2, 9)}`;
+                child.name = objName;
+                
+                addObjectData(objName, initialData[objName] || {
+                    date: "2024-01-15",
+                    vendor: "Default Vendor",
+                    mandor: "Default Mandor",
+                    zone: "Default Zone",
+                    workers: 0
+                });
 
                 if (child.material) {
                     child.material.roughness = 0.7;
@@ -148,7 +146,6 @@ const highlightMaterial = new THREE.MeshStandardMaterial({
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// Helper function to get accurate mouse coordinates
 function getMousePosition(event, domElement) {
     const rect = domElement.getBoundingClientRect();
     return {
@@ -157,32 +154,29 @@ function getMousePosition(event, domElement) {
     };
 }
 
-// Create a close button handler
 function createCloseButton() {
     const closeButton = document.createElement('button');
     closeButton.className = 'close-button';
     closeButton.innerHTML = '×';
+    closeButton.style.fontSize = '24px';
+    closeButton.style.padding = '10px 15px';
     closeButton.addEventListener('click', (e) => {
         e.stopPropagation();
         popup.style.display = 'none';
-        selectObject(null, true); // Force clear selection when closing popup
+        selectObject(null, true);
     });
     return closeButton;
 }
 
-// Modified selectObject function
 function selectObject(object, forceSelection = false) {
-    // If there's a popup visible and we're not forcing selection
     if (popup.style.display === 'block' && !forceSelection) {
-        return; // Keep current selection while popup is visible
+        return;
     }
 
-    // If we have a currently selected object, restore its material
     if (selectedObject && selectedObject !== object) {
         selectedObject.material = originalMaterials.get(selectedObject.uuid).clone();
     }
     
-    // Update selection and highlight new object
     if (object) {
         selectedObject = object;
         object.material = highlightMaterial.clone();
@@ -193,14 +187,79 @@ function selectObject(object, forceSelection = false) {
     }
 }
 
+// TOUCH CONTROLS
+let touchStartX = 0;
+let touchStartY = 0;
+let touchPrevX = 0;
+let touchPrevY = 0;
+let isDragging = false;
+let isPinching = false;
+let initialPinchDistance = 0;
+
+container.addEventListener('touchstart', (event) => {
+    event.preventDefault();
+    
+    if (event.touches.length === 1) {
+        isDragging = true;
+        touchStartX = event.touches[0].clientX;
+        touchStartY = event.touches[0].clientY;
+        touchPrevX = touchStartX;
+        touchPrevY = touchStartY;
+    } 
+    else if (event.touches.length === 2) {
+        isPinching = true;
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+    }
+}, { passive: false });
+
+container.addEventListener('touchmove', (event) => {
+    event.preventDefault();
+    
+    if (isDragging && event.touches.length === 1) {
+        const touchX = event.touches[0].clientX;
+        const touchY = event.touches[0].clientY;
+        
+        const deltaX = (touchX - touchPrevX) * 0.005;
+        const deltaY = (touchY - touchPrevY) * 0.005;
+        
+        yaw -= deltaX;
+        pitch -= deltaY;
+        pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+        
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+        camera.quaternion.copy(quaternion);
+        
+        touchPrevX = touchX;
+        touchPrevY = touchY;
+    }
+    else if (isPinching && event.touches.length === 2) {
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        const currentPinchDistance = Math.sqrt(dx * dx + dy * dy);
+        
+        const pinchDelta = (currentPinchDistance - initialPinchDistance) * 0.005;
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        camera.position.addScaledVector(direction, -pinchDelta);
+        
+        initialPinchDistance = currentPinchDistance;
+    }
+}, { passive: false });
+
+container.addEventListener('touchend', () => {
+    isDragging = false;
+    isPinching = false;
+});
+
 // MOUSE EVENTS
 document.addEventListener('mousemove', (event) => {
-    // Skip if mouse is over popup
     if (event.target.closest('.object-popup')) {
         return;
     }
 
-    // Skip hover effects if mouse is pressed or popup is visible
     if (!isMousePressed && popup.style.display !== 'block') {
         const mousePos = getMousePosition(event, renderer.domElement);
         mouse.x = mousePos.x;
@@ -221,13 +280,19 @@ document.addEventListener('mousemove', (event) => {
     }
 });
 
-document.addEventListener('click', (event) => {
-    // Skip if clicking on popup
+// OBJECT SELECTION
+function handleSelection(event, isTouch = false) {
     if (event.target.closest('.object-popup')) {
         return;
     }
     
-    const mousePos = getMousePosition(event, renderer.domElement);
+    const mousePos = isTouch ? 
+        {
+            x: ((event.touches[0].clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1,
+            y: -((event.touches[0].clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1
+        } :
+        getMousePosition(event, renderer.domElement);
+    
     mouse.x = mousePos.x;
     mouse.y = mousePos.y;
     
@@ -240,14 +305,10 @@ document.addEventListener('click', (event) => {
         const data = objectData.get(clickedObject.name);
         
         if (data) {
-            // Clear previous content
             popup.innerHTML = '';
-            
-            // Add close button
             const closeButton = createCloseButton();
             popup.appendChild(closeButton);
             
-            // Add content
             const content = document.createElement('div');
             content.innerHTML = `
                 <h3>Object Info</h3>
@@ -259,26 +320,29 @@ document.addEventListener('click', (event) => {
             `;
             popup.appendChild(content);
             
-            // Show popup
             popup.style.display = 'block';
-            popup.style.left = event.clientX + 10 + 'px';
-            popup.style.top = event.clientY + 10 + 'px';
+            popup.style.left = (isTouch ? event.touches[0].clientX : event.clientX) + 10 + 'px';
+            popup.style.top = (isTouch ? event.touches[0].clientY : event.clientY) + 10 + 'px';
             
-            // Ensure popup stays within viewport
             const rect = popup.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
-                popup.style.left = `${event.clientX - rect.width - 10}px`;
+                popup.style.left = `${(isTouch ? event.touches[0].clientX : event.clientX) - rect.width - 10}px`;
             }
             if (rect.bottom > window.innerHeight) {
-                popup.style.top = `${event.clientY - rect.height - 10}px`;
+                popup.style.top = `${(isTouch ? event.touches[0].clientY : event.clientY) - rect.height - 10}px`;
             }
             
-            // Force select the clicked object
             selectObject(clickedObject, true);
         }
     } else if (popup.style.display !== 'block') {
-        // Only clear selection if popup is not visible
         selectObject(null);
+    }
+}
+
+document.addEventListener('click', (event) => handleSelection(event, false));
+container.addEventListener('touchstart', (event) => {
+    if (event.touches.length === 1) {
+        handleSelection(event, true);
     }
 });
 
@@ -298,8 +362,10 @@ let isMousePressed = false;
 let mouseDeltaX = 0,
     mouseDeltaY = 0;
 
+// Prevent right click menu
 window.addEventListener('contextmenu', (event) => event.preventDefault());
 
+// Mouse controls for rotation
 window.addEventListener('mousedown', (event) => {
     if (event.button === 2) {
         event.preventDefault();
@@ -308,7 +374,9 @@ window.addEventListener('mousedown', (event) => {
 });
 
 window.addEventListener('mouseup', (event) => {
-    if (event.button === 2) isMousePressed = false;
+    if (event.button === 2) {
+        isMousePressed = false;
+    }
 });
 
 window.addEventListener('mousemove', (event) => {
@@ -326,7 +394,7 @@ window.addEventListener('mousemove', (event) => {
     }
 });
 
-// KEYBOARD CONTROLS
+// Keyboard controls
 window.addEventListener('keydown', (event) => {
     if (event.shiftKey && event.code === 'Space') {
         movementSpeed = 1.2;
@@ -389,5 +457,12 @@ window.addEventListener('resize', () => {
     popup.style.display = 'none';
 });
 
-// Start animation
+// Prevent default touch behaviors
+document.addEventListener('touchmove', (e) => {
+    if (e.target === container) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+// Start animation loop
 animate();
