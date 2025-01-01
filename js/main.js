@@ -194,12 +194,30 @@ let touchPrevX = 0;
 let touchPrevY = 0;
 let isDragging = false;
 let isPinching = false;
+let isMoving = false;
 let initialPinchDistance = 0;
 let lastTapTime = 0;
-const DOUBLE_TAP_DELAY = 300;
 let lastTapX = 0;
 let lastTapY = 0;
+const DOUBLE_TAP_DELAY = 300;
 const TAP_DISTANCE_THRESHOLD = 30;
+let prevTouchDistance = 0;
+let prevTouchCenter = { x: 0, y: 0 };
+
+// Get center point of two touches
+function getTouchCenter(touch1, touch2) {
+    return {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+    };
+}
+
+// Get distance between two touches
+function getTouchDistance(touch1, touch2) {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
 
 // Enhanced touch event handlers
 container.addEventListener('touchstart', (event) => {
@@ -224,7 +242,7 @@ container.addEventListener('touchstart', (event) => {
         lastTapX = touchX;
         lastTapY = touchY;
         
-        // Setup drag
+        // Setup single finger rotation
         isDragging = true;
         touchStartX = touchX;
         touchStartY = touchY;
@@ -232,12 +250,27 @@ container.addEventListener('touchstart', (event) => {
         touchPrevY = touchStartY;
     } 
     else if (event.touches.length === 2) {
-        // Setup pinch zoom
+        // Initialize two-finger gesture
         isDragging = false;
-        isPinching = true;
-        const dx = event.touches[0].clientX - event.touches[1].clientX;
-        const dy = event.touches[0].clientY - event.touches[1].clientY;
-        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        
+        // Set initial values for pinch-zoom
+        initialPinchDistance = getTouchDistance(touch1, touch2);
+        prevTouchDistance = initialPinchDistance;
+        
+        // Set initial values for two-finger pan
+        prevTouchCenter = getTouchCenter(touch1, touch2);
+        
+        // Determine if we're pinching or moving based on finger orientation
+        const touchAngle = Math.abs(Math.atan2(
+            touch2.clientY - touch1.clientY,
+            touch2.clientX - touch1.clientX
+        ));
+        
+        // If fingers are roughly horizontal, treat as movement
+        isMoving = touchAngle < Math.PI / 4 || touchAngle > (3 * Math.PI) / 4;
+        isPinching = !isMoving;
     }
 }, { passive: false });
 
@@ -268,24 +301,45 @@ container.addEventListener('touchmove', (event) => {
         touchPrevX = touchX;
         touchPrevY = touchY;
     }
-    else if (isPinching && event.touches.length === 2) {
-        // Handle pinch zoom
-        const dx = event.touches[0].clientX - event.touches[1].clientX;
-        const dy = event.touches[0].clientY - event.touches[1].clientY;
-        const currentPinchDistance = Math.sqrt(dx * dx + dy * dy);
+    else if (event.touches.length === 2) {
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        const currentTouchCenter = getTouchCenter(touch1, touch2);
         
-        const pinchDelta = (currentPinchDistance - initialPinchDistance) * 0.05;
-        const direction = new THREE.Vector3();
-        camera.getWorldDirection(direction);
-        camera.position.addScaledVector(direction, -pinchDelta);
+        if (isPinching) {
+            // Handle pinch zoom with corrected direction
+            const currentDistance = getTouchDistance(touch1, touch2);
+            const pinchDelta = (prevTouchDistance - currentDistance) * 0.05;
+            
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            camera.position.addScaledVector(direction, pinchDelta);
+            
+            prevTouchDistance = currentDistance;
+        }
+        else if (isMoving) {
+            // Handle two-finger pan movement
+            const deltaX = currentTouchCenter.x - prevTouchCenter.x;
+            const deltaY = currentTouchCenter.y - prevTouchCenter.y;
+            
+            const right = new THREE.Vector3();
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            right.crossVectors(camera.up, direction).normalize();
+            
+            // Move in the camera's local space
+            camera.position.addScaledVector(right, -deltaX * 0.01);
+            camera.position.y += deltaY * 0.01;
+        }
         
-        initialPinchDistance = currentPinchDistance;
+        prevTouchCenter = currentTouchCenter;
     }
 }, { passive: false });
 
 container.addEventListener('touchend', () => {
     isDragging = false;
     isPinching = false;
+    isMoving = false;
 });
 
 // Mouse event handlers
