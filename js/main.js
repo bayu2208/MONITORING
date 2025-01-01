@@ -187,7 +187,7 @@ function selectObject(object, forceSelection = false) {
     }
 }
 
-// TOUCH AND MOUSE CONTROLS
+// TOUCH CONTROL VARIABLES
 let touchStartX = 0;
 let touchStartY = 0;
 let touchPrevX = 0;
@@ -195,30 +195,39 @@ let touchPrevY = 0;
 let isDragging = false;
 let isPinching = false;
 let initialPinchDistance = 0;
+let lastTapTime = 0;
+const DOUBLE_TAP_DELAY = 300;
+let lastTapX = 0;
+let lastTapY = 0;
+const TAP_DISTANCE_THRESHOLD = 30;
 
-// Track double click/tap
-let lastTap = 0;
-let lastClick = 0;
-const DOUBLE_CLICK_DELAY = 300;
-
-// Touch event handlers
+// Enhanced touch event handlers
 container.addEventListener('touchstart', (event) => {
     event.preventDefault();
     
-    // Handle double tap for selection
     if (event.touches.length === 1) {
+        const touch = event.touches[0];
         const currentTime = Date.now();
-        const timeDiff = currentTime - lastTap;
+        const touchX = touch.clientX;
+        const touchY = touch.clientY;
         
-        if (timeDiff < DOUBLE_CLICK_DELAY) {
+        // Check for double tap
+        if (currentTime - lastTapTime < DOUBLE_TAP_DELAY &&
+            Math.abs(touchX - lastTapX) < TAP_DISTANCE_THRESHOLD &&
+            Math.abs(touchY - lastTapY) < TAP_DISTANCE_THRESHOLD) {
+            // Double tap detected - handle selection
             handleSelection(event, true);
         }
-        lastTap = currentTime;
-
+        
+        // Update last tap info
+        lastTapTime = currentTime;
+        lastTapX = touchX;
+        lastTapY = touchY;
+        
         // Setup drag
         isDragging = true;
-        touchStartX = event.touches[0].clientX;
-        touchStartY = event.touches[0].clientY;
+        touchStartX = touchX;
+        touchStartY = touchY;
         touchPrevX = touchStartX;
         touchPrevY = touchStartY;
     } 
@@ -236,10 +245,15 @@ container.addEventListener('touchmove', (event) => {
     event.preventDefault();
     
     if (isDragging && event.touches.length === 1) {
-        // Handle rotation
+        // Cancel potential double tap if dragging too far
         const touchX = event.touches[0].clientX;
         const touchY = event.touches[0].clientY;
+        if (Math.abs(touchX - touchStartX) > TAP_DISTANCE_THRESHOLD ||
+            Math.abs(touchY - touchStartY) > TAP_DISTANCE_THRESHOLD) {
+            lastTapTime = 0;
+        }
         
+        // Handle rotation
         const deltaX = (touchX - touchPrevX) * 0.005;
         const deltaY = (touchY - touchPrevY) * 0.005;
         
@@ -343,12 +357,16 @@ function handleSelection(event, isTouch = false) {
         return;
     }
     
-    const mousePos = isTouch ? 
-        {
-            x: ((event.touches[0].clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1,
-            y: -((event.touches[0].clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1
-        } :
-        getMousePosition(event, renderer.domElement);
+    let mousePos;
+    if (isTouch) {
+        const touch = event.touches[0];
+        mousePos = {
+            x: ((touch.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1,
+            y: -((touch.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1
+        };
+    } else {
+        mousePos = getMousePosition(event, renderer.domElement);
+    }
     
     mouse.x = mousePos.x;
     mouse.y = mousePos.y;
@@ -378,15 +396,18 @@ function handleSelection(event, isTouch = false) {
             popup.appendChild(content);
             
             popup.style.display = 'block';
-            popup.style.left = (isTouch ? event.touches[0].clientX : event.clientX) + 10 + 'px';
-            popup.style.top = (isTouch ? event.touches[0].clientY : event.clientY) + 10 + 'px';
+            const xPos = isTouch ? event.touches[0].clientX : event.clientX;
+            const yPos = isTouch ? event.touches[0].clientY : event.clientY;
+            popup.style.left = xPos + 10 + 'px';
+            popup.style.top = yPos + 10 + 'px';
             
+            // Adjust popup position if it goes off screen
             const rect = popup.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
-                popup.style.left = `${(isTouch ? event.touches[0].clientX : event.clientX) - rect.width - 10}px`;
+                popup.style.left = `${xPos - rect.width - 10}px`;
             }
             if (rect.bottom > window.innerHeight) {
-                popup.style.top = `${(isTouch ? event.touches[0].clientY : event.clientY) - rect.height - 10}px`;
+                popup.style.top = `${yPos - rect.height - 10}px`;
             }
             
             selectObject(clickedObject, true);
