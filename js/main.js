@@ -187,7 +187,7 @@ function selectObject(object, forceSelection = false) {
     }
 }
 
-// TOUCH CONTROLS
+// TOUCH AND MOUSE CONTROLS
 let touchStartX = 0;
 let touchStartY = 0;
 let touchPrevX = 0;
@@ -196,10 +196,26 @@ let isDragging = false;
 let isPinching = false;
 let initialPinchDistance = 0;
 
+// Track double click/tap
+let lastTap = 0;
+let lastClick = 0;
+const DOUBLE_CLICK_DELAY = 300;
+
+// Touch event handlers
 container.addEventListener('touchstart', (event) => {
     event.preventDefault();
     
+    // Handle double tap for selection
     if (event.touches.length === 1) {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastTap;
+        
+        if (timeDiff < DOUBLE_CLICK_DELAY) {
+            handleSelection(event, true);
+        }
+        lastTap = currentTime;
+
+        // Setup drag
         isDragging = true;
         touchStartX = event.touches[0].clientX;
         touchStartY = event.touches[0].clientY;
@@ -207,6 +223,8 @@ container.addEventListener('touchstart', (event) => {
         touchPrevY = touchStartY;
     } 
     else if (event.touches.length === 2) {
+        // Setup pinch zoom
+        isDragging = false;
         isPinching = true;
         const dx = event.touches[0].clientX - event.touches[1].clientX;
         const dy = event.touches[0].clientY - event.touches[1].clientY;
@@ -218,6 +236,7 @@ container.addEventListener('touchmove', (event) => {
     event.preventDefault();
     
     if (isDragging && event.touches.length === 1) {
+        // Handle rotation
         const touchX = event.touches[0].clientX;
         const touchY = event.touches[0].clientY;
         
@@ -236,11 +255,12 @@ container.addEventListener('touchmove', (event) => {
         touchPrevY = touchY;
     }
     else if (isPinching && event.touches.length === 2) {
+        // Handle pinch zoom
         const dx = event.touches[0].clientX - event.touches[1].clientX;
         const dy = event.touches[0].clientY - event.touches[1].clientY;
         const currentPinchDistance = Math.sqrt(dx * dx + dy * dy);
         
-        const pinchDelta = (currentPinchDistance - initialPinchDistance) * 0.005;
+        const pinchDelta = (currentPinchDistance - initialPinchDistance) * 0.05;
         const direction = new THREE.Vector3();
         camera.getWorldDirection(direction);
         camera.position.addScaledVector(direction, -pinchDelta);
@@ -252,6 +272,43 @@ container.addEventListener('touchmove', (event) => {
 container.addEventListener('touchend', () => {
     isDragging = false;
     isPinching = false;
+});
+
+// Mouse event handlers
+document.addEventListener('click', (event) => {
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastClick;
+    
+    if (timeDiff < DOUBLE_CLICK_DELAY) {
+        handleSelection(event, false);
+    }
+    lastClick = currentTime;
+});
+
+// Hover effect only for desktop
+document.addEventListener('mousemove', (event) => {
+    if (event.target.closest('.object-popup') || isPinching || isDragging) {
+        return;
+    }
+
+    if (!isMousePressed && popup.style.display !== 'block') {
+        const mousePos = getMousePosition(event, renderer.domElement);
+        mouse.x = mousePos.x;
+        mouse.y = mousePos.y;
+        
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(scene.children, true)
+            .filter(intersect => intersect.object.isMesh);
+        
+        if (intersects.length > 0) {
+            const hoveredObject = intersects[0].object;
+            if (hoveredObject !== selectedObject) {
+                selectObject(hoveredObject);
+            }
+        } else {
+            selectObject(null);
+        }
+    }
 });
 
 // MOUSE EVENTS
