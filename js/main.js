@@ -221,7 +221,7 @@ container.addEventListener('touchstart', (event) => {
     if (event.touches.length === 1) {
         const touch = event.touches[0];
         
-        // Setup single finger rotation
+        // Setup single finger orbit
         isDragging = true;
         touchStartX = touch.clientX;
         touchStartY = touch.clientY;
@@ -257,7 +257,7 @@ container.addEventListener('touchmove', (event) => {
     event.preventDefault();
     
     if (isDragging && event.touches.length === 1) {
-        // Handle rotation
+        // Handle orbit rotation
         const touchX = event.touches[0].clientX;
         const touchY = event.touches[0].clientY;
         
@@ -281,9 +281,9 @@ container.addEventListener('touchmove', (event) => {
         const currentTouchCenter = getTouchCenter(touch1, touch2);
         
         if (isPinching) {
-            // Handle pinch zoom with corrected direction
+            // Handle pinch zoom
             const currentDistance = getTouchDistance(touch1, touch2);
-            const pinchDelta = (currentDistance - prevTouchDistance) * 0.05; // Direction reversed here
+            const pinchDelta = (currentDistance - prevTouchDistance) * 0.05;
             
             const direction = new THREE.Vector3();
             camera.getWorldDirection(direction);
@@ -292,7 +292,7 @@ container.addEventListener('touchmove', (event) => {
             prevTouchDistance = currentDistance;
         }
         else if (isMoving) {
-            // Handle two-finger pan movement with corrected horizontal direction
+            // Handle two-finger pan movement
             const deltaX = currentTouchCenter.x - prevTouchCenter.x;
             const deltaY = currentTouchCenter.y - prevTouchCenter.y;
             
@@ -301,8 +301,7 @@ container.addEventListener('touchmove', (event) => {
             camera.getWorldDirection(direction);
             right.crossVectors(camera.up, direction).normalize();
             
-            // Move in the camera's local space with corrected horizontal direction
-            camera.position.addScaledVector(right, deltaX * 0.01); // Direction reversed here
+            camera.position.addScaledVector(right, -deltaX * 0.01);
             camera.position.y += deltaY * 0.01;
         }
         
@@ -316,7 +315,6 @@ container.addEventListener('touchend', () => {
     isMoving = false;
 });
 
-// Remove all tap-related selection code
 container.addEventListener('touchcancel', () => {
     isDragging = false;
     isPinching = false;
@@ -388,78 +386,34 @@ document.addEventListener('mousemove', (event) => {
 
 // OBJECT SELECTION
 function handleSelection(event, isTouch = false) {
-    if (event.target.closest('.object-popup')) {
-        return;
-    }
-    
-    let mousePos;
-    if (isTouch) {
-        const touch = event.touches[0];
-        mousePos = {
-            x: ((touch.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1,
-            y: -((touch.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1
-        };
-    } else {
-        mousePos = getMousePosition(event, renderer.domElement);
-    }
-    
-    mouse.x = mousePos.x;
-    mouse.y = mousePos.y;
-    
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true)
-        .filter(intersect => intersect.object.isMesh);
-    
-    if (intersects.length > 0) {
-        const clickedObject = intersects[0].object;
-        const data = objectData.get(clickedObject.name);
-        
-        if (data) {
-            popup.innerHTML = '';
-            const closeButton = createCloseButton();
-            popup.appendChild(closeButton);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    // Handle mouse position
+    if (!isTouch) {  // Ini akan tetap memproses click di desktop
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(scene.children, true);
+
+        if (intersects.length > 0) {
+            const selectedObject = intersects[0].object;
+            const objectName = selectedObject.name;
             
-            const content = document.createElement('div');
-            content.innerHTML = `
-                <h3>Object Info</h3>
-                <p><strong>Date:</strong> ${data.date}</p>
-                <p><strong>Subkon/Vendor:</strong> ${data.vendor}</p>
-                <p><strong>Mandor:</strong> ${data.mandor}</p>
-                <p><strong>Zone:</strong> ${data.zone}</p>
-                <p><strong>Workers:</strong> ${data.workers}</p>
-            `;
-            popup.appendChild(content);
-            
-            popup.style.display = 'block';
-            const xPos = isTouch ? event.touches[0].clientX : event.clientX;
-            const yPos = isTouch ? event.touches[0].clientY : event.clientY;
-            popup.style.left = xPos + 10 + 'px';
-            popup.style.top = yPos + 10 + 'px';
-            
-            // Adjust popup position if it goes off screen
-            const rect = popup.getBoundingClientRect();
-            if (rect.right > window.innerWidth) {
-                popup.style.left = `${xPos - rect.width - 10}px`;
+            if (objectData.has(objectName)) {
+                const data = objectData.get(objectName);
+                showPopup(event.clientX, event.clientY, data);
             }
-            if (rect.bottom > window.innerHeight) {
-                popup.style.top = `${yPos - rect.height - 10}px`;
-            }
-            
-            selectObject(clickedObject, true);
+        } else {
+            hidePopup();
         }
-    } else if (popup.style.display !== 'block') {
-        selectObject(null);
     }
 }
 
+// Event listener untuk click di desktop tetap ada
 document.addEventListener('click', (event) => handleSelection(event, false));
-container.addEventListener('touchstart', (event) => {
-    if (event.touches.length === 1) {
-        handleSelection(event, true);
-    }
-});
 
-// Semua kode sebelumnya tetap sama sampai bagian NAVIGATION CONTROLS
 
 // NAVIGATION CONTROLS
 let moveForward = false,
@@ -555,12 +509,11 @@ function animate() {
 
     const right = new THREE.Vector3();
     right.crossVectors(camera.up, direction).normalize();
-
-    // Continuing from where it left off...
-
-    if (moveLeft) camera.position.addScaledVector(right, -movementSpeed);
-    if (moveRight) camera.position.addScaledVector(right, movementSpeed);
-
+    
+    // Pergerakan kiri-kanan yang sudah dikoreksi
+    if (moveLeft) camera.position.addScaledVector(right, movementSpeed);    // Bergerak ke kiri
+    if (moveRight) camera.position.addScaledVector(right, -movementSpeed);  // Bergerak ke kanan
+    
     if (moveUp) camera.position.y += movementSpeed;
     if (moveDown) camera.position.y -= movementSpeed;
 
@@ -574,9 +527,37 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Initialize double click detection
-const DOUBLE_CLICK_DELAY = 300;
-let lastClick = 0;
+// Popup functions
+function showPopup(x, y, data) {
+    popup.innerHTML = `
+        <button class="close-button">×</button>
+        <div class="popup-content">
+            <p><strong>Date:</strong> ${data.date}</p>
+            <p><strong>Vendor:</strong> ${data.vendor}</p>
+            <p><strong>Mandor:</strong> ${data.mandor}</p>
+            <p><strong>Zone:</strong> ${data.zone}</p>
+            <p><strong>Workers:</strong> ${data.workers}</p>
+        </div>
+    `;
+    
+    popup.style.left = `${x + 10}px`;
+    popup.style.top = `${y + 10}px`;
+    popup.style.display = 'block';
 
-// Start the animation loop
+    const closeButton = popup.querySelector('.close-button');
+    closeButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hidePopup();
+    });
+}
+
+function hidePopup() {
+    popup.style.display = 'none';
+    if (selectedObject) {
+        selectObject(null, true);
+    }
+}
+
+// Start animation
 animate();
+
