@@ -289,7 +289,7 @@ container.addEventListener('touchmove', (event) => {
         camera.getWorldDirection(direction);
         right.crossVectors(camera.up, direction).normalize();
         
-        camera.position.addScaledVector(right, -deltaX);
+        camera.position.addScaledVector(right, deltaX);
         camera.position.y += deltaY;
         
         prevTouchDistance = currentDistance;
