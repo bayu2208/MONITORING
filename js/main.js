@@ -246,7 +246,7 @@ container.addEventListener('touchstart', (event) => {
     }
 }, { passive: false });
 
-container.addEventListener('touchmove', (event) => {
+container.adcontainer.addEventListener('touchmove', (event) => {
     event.preventDefault();
     
     if (isDragging && event.touches.length === 1) {
@@ -272,32 +272,27 @@ container.addEventListener('touchmove', (event) => {
         const touch1 = event.touches[0];
         const touch2 = event.touches[1];
         const currentTouchCenter = getTouchCenter(touch1, touch2);
+        const currentDistance = getTouchDistance(touch1, touch2);
         
-        if (isPinching) {
-            // Handle pinch zoom
-            const currentDistance = getTouchDistance(touch1, touch2);
-            const pinchDelta = (currentDistance - prevTouchDistance) * 0.05;
-            
-            const direction = new THREE.Vector3();
-            camera.getWorldDirection(direction);
-            camera.position.addScaledVector(direction, pinchDelta);
-            
-            prevTouchDistance = currentDistance;
-        }
-        else if (isMoving) {
-            // Handle two-finger pan movement
-            const deltaX = currentTouchCenter.x - prevTouchCenter.x;
-            const deltaY = currentTouchCenter.y - prevTouchCenter.y;
-            
-            const right = new THREE.Vector3();
-            const direction = new THREE.Vector3();
-            camera.getWorldDirection(direction);
-            right.crossVectors(camera.up, direction).normalize();
-            
-            camera.position.addScaledVector(right, deltaX * 0.01);
-            camera.position.y += deltaY * 0.01;
-        }
+        // Handle both pinch zoom and pan simultaneously
+        // Pinch zoom
+        const pinchDelta = (currentDistance - prevTouchDistance) * 0.05;
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        camera.position.addScaledVector(direction, pinchDelta);
         
+        // Pan movement
+        const deltaX = (currentTouchCenter.x - prevTouchCenter.x) * 0.1;
+        const deltaY = (currentTouchCenter.y - prevTouchCenter.y) * 0.1;
+        
+        const right = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        right.crossVectors(camera.up, direction).normalize();
+        
+        camera.position.addScaledVector(right, -deltaX);
+        camera.position.y += deltaY;
+        
+        prevTouchDistance = currentDistance;
         prevTouchCenter = currentTouchCenter;
     }
 }, { passive: false });
