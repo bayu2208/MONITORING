@@ -556,28 +556,27 @@ function animate() {
     const right = new THREE.Vector3();
     right.crossVectors(camera.up, direction).normalize();
 
-    if (moveLeft) camera.position.addScaledVector(right, movementSpeed);
-    if (moveRight) camera.position.addScaledVector(right, -movementSpeed);
+    // Continuing from where it left off...
+
+    if (moveLeft) camera.position.addScaledVector(right, -movementSpeed);
+    if (moveRight) camera.position.addScaledVector(right, movementSpeed);
+
     if (moveUp) camera.position.y += movementSpeed;
     if (moveDown) camera.position.y -= movementSpeed;
 
     renderer.render(scene, camera);
 }
 
-// WINDOW RESIZE
+// Window resize handler
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    popup.style.display = 'none';
 });
 
-// Prevent default touch behaviors
-document.addEventListener('touchmove', (e) => {
-    if (e.target === container) {
-        e.preventDefault();
-    }
-}, { passive: false });
+// Initialize double click detection
+const DOUBLE_CLICK_DELAY = 300;
+let lastClick = 0;
 
-// Start animation loop
+// Start the animation loop
 animate();
