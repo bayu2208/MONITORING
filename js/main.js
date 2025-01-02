@@ -196,11 +196,6 @@ let isDragging = false;
 let isPinching = false;
 let isMoving = false;
 let initialPinchDistance = 0;
-let lastTapTime = 0;
-let lastTapX = 0;
-let lastTapY = 0;
-const DOUBLE_TAP_DELAY = 300;
-const TAP_DISTANCE_THRESHOLD = 30;
 let prevTouchDistance = 0;
 let prevTouchCenter = { x: 0, y: 0 };
 
@@ -225,27 +220,11 @@ container.addEventListener('touchstart', (event) => {
     
     if (event.touches.length === 1) {
         const touch = event.touches[0];
-        const currentTime = Date.now();
-        const touchX = touch.clientX;
-        const touchY = touch.clientY;
-        
-        // Check for double tap
-        if (currentTime - lastTapTime < DOUBLE_TAP_DELAY &&
-            Math.abs(touchX - lastTapX) < TAP_DISTANCE_THRESHOLD &&
-            Math.abs(touchY - lastTapY) < TAP_DISTANCE_THRESHOLD) {
-            // Double tap detected - handle selection
-            handleSelection(event, true);
-        }
-        
-        // Update last tap info
-        lastTapTime = currentTime;
-        lastTapX = touchX;
-        lastTapY = touchY;
         
         // Setup single finger rotation
         isDragging = true;
-        touchStartX = touchX;
-        touchStartY = touchY;
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
         touchPrevX = touchStartX;
         touchPrevY = touchStartY;
     } 
@@ -278,15 +257,10 @@ container.addEventListener('touchmove', (event) => {
     event.preventDefault();
     
     if (isDragging && event.touches.length === 1) {
-        // Cancel potential double tap if dragging too far
+        // Handle rotation
         const touchX = event.touches[0].clientX;
         const touchY = event.touches[0].clientY;
-        if (Math.abs(touchX - touchStartX) > TAP_DISTANCE_THRESHOLD ||
-            Math.abs(touchY - touchStartY) > TAP_DISTANCE_THRESHOLD) {
-            lastTapTime = 0;
-        }
         
-        // Handle rotation
         const deltaX = (touchX - touchPrevX) * 0.005;
         const deltaY = (touchY - touchPrevY) * 0.005;
         
@@ -309,7 +283,7 @@ container.addEventListener('touchmove', (event) => {
         if (isPinching) {
             // Handle pinch zoom with corrected direction
             const currentDistance = getTouchDistance(touch1, touch2);
-            const pinchDelta = (prevTouchDistance - currentDistance) * 0.05;
+            const pinchDelta = (currentDistance - prevTouchDistance) * 0.05; // Direction reversed here
             
             const direction = new THREE.Vector3();
             camera.getWorldDirection(direction);
@@ -318,7 +292,7 @@ container.addEventListener('touchmove', (event) => {
             prevTouchDistance = currentDistance;
         }
         else if (isMoving) {
-            // Handle two-finger pan movement
+            // Handle two-finger pan movement with corrected horizontal direction
             const deltaX = currentTouchCenter.x - prevTouchCenter.x;
             const deltaY = currentTouchCenter.y - prevTouchCenter.y;
             
@@ -327,8 +301,8 @@ container.addEventListener('touchmove', (event) => {
             camera.getWorldDirection(direction);
             right.crossVectors(camera.up, direction).normalize();
             
-            // Move in the camera's local space
-            camera.position.addScaledVector(right, -deltaX * 0.01);
+            // Move in the camera's local space with corrected horizontal direction
+            camera.position.addScaledVector(right, deltaX * 0.01); // Direction reversed here
             camera.position.y += deltaY * 0.01;
         }
         
@@ -337,6 +311,13 @@ container.addEventListener('touchmove', (event) => {
 }, { passive: false });
 
 container.addEventListener('touchend', () => {
+    isDragging = false;
+    isPinching = false;
+    isMoving = false;
+});
+
+// Remove all tap-related selection code
+container.addEventListener('touchcancel', () => {
     isDragging = false;
     isPinching = false;
     isMoving = false;
