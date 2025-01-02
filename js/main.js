@@ -274,9 +274,9 @@ container.addEventListener('touchmove', (event) => {
         const currentTouchCenter = getTouchCenter(touch1, touch2);
         const currentDistance = getTouchDistance(touch1, touch2);
         
-        // Handle both pinch zoom and pan simultaneously
-        // Pinch zoom
-        const pinchDelta = (currentDistance - prevTouchDistance) * 0.05;
+        // Pinch zoom with increased sensitivity
+        const zoomSpeed = 0.15;
+        const pinchDelta = (currentDistance - prevTouchDistance) * zoomSpeed;
         const direction = new THREE.Vector3();
         camera.getWorldDirection(direction);
         camera.position.addScaledVector(direction, pinchDelta);
@@ -289,7 +289,7 @@ container.addEventListener('touchmove', (event) => {
         camera.getWorldDirection(direction);
         right.crossVectors(camera.up, direction).normalize();
         
-        camera.position.addScaledVector(right, -deltaX);
+        camera.position.addScaledVector(right, deltaX);
         camera.position.y += deltaY;
         
         prevTouchDistance = currentDistance;
