@@ -282,14 +282,14 @@ container.addEventListener('touchmove', (event) => {
         camera.position.addScaledVector(direction, pinchDelta);
         
         // Pan movement
-        const deltaX = (currentTouchCenter.x - prevTouchCenter.x) * 0.1;
+        const deltaX = -(currentTouchCenter.x - prevTouchCenter.x) * 0.1;  // Invert deltaX calculation
         const deltaY = (currentTouchCenter.y - prevTouchCenter.y) * 0.1;
         
         const right = new THREE.Vector3();
         camera.getWorldDirection(direction);
-        right.crossVectors(camera.up, direction).normalize();
+        right.crossVectors(direction, camera.up).normalize();  // Swap direction and up vectors
         
-        camera.position.addScaledVector(right, -deltaX);
+        camera.position.addScaledVector(right, deltaX);
         camera.position.y += deltaY;
         
         prevTouchDistance = currentDistance;
