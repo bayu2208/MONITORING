@@ -246,7 +246,7 @@ container.addEventListener('touchstart', (event) => {
     }
 }, { passive: false });
 
-container.adcontainer.addEventListener('touchmove', (event) => {
+container.addEventListener('touchmove', (event) => {
     event.preventDefault();
     
     if (isDragging && event.touches.length === 1) {
