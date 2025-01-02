@@ -214,7 +214,6 @@ function getTouchDistance(touch1, touch2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Enhanced touch event handlers
 container.addEventListener('touchstart', (event) => {
     event.preventDefault();
     
@@ -241,15 +240,9 @@ container.addEventListener('touchstart', (event) => {
         // Set initial values for two-finger pan
         prevTouchCenter = getTouchCenter(touch1, touch2);
         
-        // Determine if we're pinching or moving based on finger orientation
-        const touchAngle = Math.abs(Math.atan2(
-            touch2.clientY - touch1.clientY,
-            touch2.clientX - touch1.clientX
-        ));
-        
-        // If fingers are roughly horizontal, treat as movement
-        isMoving = touchAngle < Math.PI / 4 || touchAngle > (3 * Math.PI) / 4;
-        isPinching = !isMoving;
+        // Enable both pinching and moving for all two-finger gestures
+        isPinching = true;
+        isMoving = true;
     }
 }, { passive: false });
 
@@ -301,7 +294,7 @@ container.addEventListener('touchmove', (event) => {
             camera.getWorldDirection(direction);
             right.crossVectors(camera.up, direction).normalize();
             
-            camera.position.addScaledVector(right, -deltaX * 0.01);
+            camera.position.addScaledVector(right, deltaX * 0.01);
             camera.position.y += deltaY * 0.01;
         }
         
